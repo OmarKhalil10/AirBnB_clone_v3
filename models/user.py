@@ -6,6 +6,7 @@ from os import getenv
 import sqlalchemy
 from sqlalchemy import Column, String
 from sqlalchemy.orm import relationship
+from hashlib import md5
 
 
 class User(BaseModel, Base):
@@ -16,25 +17,20 @@ class User(BaseModel, Base):
         password = Column(String(128), nullable=False)
         first_name = Column(String(128), nullable=True)
         last_name = Column(String(128), nullable=True)
-        places = relationship("Place", backref="user",
-                              cascade="all, delete")
-        reviews = relationship("Review", backref="user",
-                               cascade="all, delete")
+        places = relationship("Place", backref="user")
+        reviews = relationship("Review", backref="user")
     else:
         email = ""
         password = ""
         first_name = ""
         last_name = ""
 
-    def __setattr__(self, name, value):
-        """set attributes, use a hash to encrypt the password"""
-        from hashlib import md5
-        if name == "password":
-            hash = md5(value.encode('utf-8'))
-            self.__dict__[name] = hash.hexdigest()
-        else:
-            self.__dict__[name] = value
-
     def __init__(self, *args, **kwargs):
         """initializes user"""
         super().__init__(*args, **kwargs)
+
+    def __setattr__(self, name, value):
+        """sets a password with md5 encryption"""
+        if name == "password":
+            value = md5(value.encode()).hexdigest()
+        super().__setattr__(name, value)
