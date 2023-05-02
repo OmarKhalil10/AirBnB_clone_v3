@@ -1,73 +1,89 @@
 #!/usr/bin/python3
-"""
-View for States that handles all RESTful API actions
-"""
-
-from flask import jsonify, request, abort
+"""States views"""
+from flask import jsonify, make_response, abort, request
+from api.v1.views import app_views
 from models import storage
 from models.state import State
-from api.v1.views import app_views
 
 
-@app_views.route('/states', methods=['GET'], strict_slashes=False)
-def states_all():
-    """ returns list of all State objects """
-    states_all = []
-    states = storage.all("State").values()
-    for state in states:
-        states_all.append(state.to_json())
-    return jsonify(states_all)
+@app_views.route('/states',
+                 strict_slashes=False,
+                 methods=['GET', 'POST'])
+def view_states():
+    """Returns the list of all State objects"""
+    if request.method == 'POST':
+
+        # Get the attributes from the request
+        data = request.get_json()
+
+        if isinstance(data, dict):
+            pass
+        else:
+            return (jsonify({"error": "Not a JSON"}), 400)
+
+        if 'name' not in data.keys():
+            return jsonify({'error': 'Missing name'}), 400
+
+        if 'id' in data.keys():
+            data.pop("id")
+        if 'created_at' in data.keys():
+            data.pop("created_at")
+        if 'updated_at' in data.keys():
+            data.pop("updated_at")
+
+        # Create the object
+        obj = State(**data)
+
+        # Save the object in storage
+        storage.new(obj)
+        storage.save()
+        return jsonify(obj.to_dict()), 201
+
+    if request.method == 'GET':
+        states = storage.all("State")
+        list = []
+        for name, state in states.items():
+            list.append(state.to_dict())
+        return jsonify(list)
 
 
-@app_views.route('/states/<state_id>', methods=['GET'])
-def state_get(state_id):
-    """ handles GET method """
-    state = storage.get("State", state_id)
+@app_views.route('/states/<id>',
+                 strict_slashes=False,
+                 methods=['GET', 'DELETE', 'PUT'])
+def view_state(id):
+    """Returns a list of all State objects, or delete an
+    object if a given id
+    """
+    state = storage.get(State, id)
+
     if state is None:
-        abort(404)
-    state = state.to_json()
-    return jsonify(state)
+        return abort(404)
 
+    if request.method == 'GET':
+        state = state.to_dict()
+        return jsonify(state)
 
-@app_views.route('/states/<state_id>', methods=['DELETE'])
-def state_delete(state_id):
-    """ handles DELETE method """
-    empty_dict = {}
-    state = storage.get("State", state_id)
-    if state is None:
-        abort(404)
-    storage.delete(state)
-    storage.save()
-    return jsonify(empty_dict), 200
+    if request.method == 'DELETE':
+        storage.delete(state)
+        storage.save()
+        return jsonify({}), 200
 
+    if request.method == 'PUT':
+        data = request.get_json()
+        if isinstance(data, dict):
+            pass
+        else:
+            return (jsonify({"error": "Not a JSON"}), 400)
 
-@app_views.route('/states', methods=['POST'], strict_slashes=False)
-def state_post():
-    """ handles POST method """
-    data = request.get_json()
-    if data is None:
-        abort(400, "Not a JSON")
-    if 'name' not in data:
-        abort(400, "Missing name")
-    state = State(**data)
-    state.save()
-    state = state.to_json()
-    return jsonify(state), 201
+        if 'id' in data.keys():
+            data.pop("id")
+        if 'created_at' in data.keys():
+            data.pop("created_at")
+        if 'updated_at' in data.keys():
+            data.pop("updated_at")
 
+        for key, value in data.items():
+            setattr(state, key, value)
 
-@app_views.route('/states/<state_id>', methods=['PUT'])
-def state_put(state_id):
-    """ handles PUT method """
-    state = storage.get("State", state_id)
-    if state is None:
-        abort(404)
-    data = request.get_json()
-    if data is None:
-        abort(400, "Not a JSON")
-    for key, value in data.items():
-        ignore_keys = ["id", "created_at", "updated_at"]
-        if key not in ignore_keys:
-            state.bm_update(key, value)
-    state.save()
-    state = state.to_json()
-    return jsonify(state), 200
+        storage.save()
+        return jsonify(state.to_dict())

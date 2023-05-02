@@ -1,31 +1,31 @@
 #!/usr/bin/python3
-"""
-App views for AirBnB_clone_v3
-"""
-
-from flask import jsonify
-from models import storage
+"""Initialize flask functions"""
+from flask import jsonify, make_response
 from api.v1.views import app_views
+from models import storage
+
+classes = {"Amenity": "amenities",
+           "City": "cities",
+           "Place": "places",
+           "Review": "reviews",
+           "State": "states",
+           "User": "users"}
 
 
-@app_views.route('/status')
-def status():
-    """ returns status """
-    status = {"status": "OK"}
-    return jsonify(status)
+@app_views.route('/status', strict_slashes=False)
+def view_status():
+    """Returns a JSON"""
+    response = jsonify({"status": "OK"})
+    response.headers["Content-Type"] = "application/json"
+    return response
 
 
-@app_views.route('/stats')
-def count():
-    """ returns number of each objects by type """
-    total = {}
-    classes = {"Amenity": "amenities",
-               "City": "cities",
-               "Place": "places",
-               "Review": "reviews",
-               "State": "states",
-               "User": "users"}
-    for cls in classes:
-        count = storage.count(cls)
-        total[classes.get(cls)] = count
-    return jsonify(total)
+@app_views.route('/stats', strict_slashes=False)
+def storage_stats():
+    """Returns a JSON"""
+    dict = {}
+    for cls, name in classes.items():
+        dict.update({name: storage.count(cls)})
+    response = jsonify(dict)
+    response.headers["Content-Type"] = "application/json"
+    return response

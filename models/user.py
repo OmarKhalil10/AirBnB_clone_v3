@@ -1,27 +1,40 @@
 #!/usr/bin/python3
-"""
-User Class from Models Module
-"""
-import os
+""" holds class User"""
+import models
 from models.base_model import BaseModel, Base
+from os import getenv
+import sqlalchemy
+from sqlalchemy import Column, String
 from sqlalchemy.orm import relationship
-from sqlalchemy import Column, Integer, String, Float
-storage_type = os.environ.get('HBNB_TYPE_STORAGE')
 
 
 class User(BaseModel, Base):
-    """User class handles all application users"""
-    if storage_type == "db":
+    """Representation of a user """
+    if models.storage_t == 'db':
         __tablename__ = 'users'
         email = Column(String(128), nullable=False)
         password = Column(String(128), nullable=False)
         first_name = Column(String(128), nullable=True)
         last_name = Column(String(128), nullable=True)
-
-        places = relationship('Place', backref='user', cascade='delete')
-        reviews = relationship('Review', backref='user', cascade='delete')
+        places = relationship("Place", backref="user",
+                              cascade="all, delete")
+        reviews = relationship("Review", backref="user",
+                               cascade="all, delete")
     else:
-        email = ''
-        password = ''
-        first_name = ''
-        last_name = ''
+        email = ""
+        password = ""
+        first_name = ""
+        last_name = ""
+
+    def __setattr__(self, name, value):
+        """set attributes, use a hash to encrypt the password"""
+        from hashlib import md5
+        if name == "password":
+            hash = md5(value.encode('utf-8'))
+            self.__dict__[name] = hash.hexdigest()
+        else:
+            self.__dict__[name] = value
+
+    def __init__(self, *args, **kwargs):
+        """initializes user"""
+        super().__init__(*args, **kwargs)

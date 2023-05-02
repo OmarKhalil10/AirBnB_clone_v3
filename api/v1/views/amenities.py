@@ -1,73 +1,83 @@
 #!/usr/bin/python3
-"""
-View for Amenities that handles all RESTful API actions
-"""
-
-from flask import jsonify, request, abort
+"""States views"""
+from flask import jsonify, make_response, abort, request
+from api.v1.views import app_views
 from models import storage
 from models.amenity import Amenity
-from api.v1.views import app_views
 
 
-@app_views.route('/amenities', methods=['GET'], strict_slashes=False)
-def amenities_all():
-    """ returns list of all Amenity objects """
-    amenities_all = []
-    amenities = storage.all("Amenity").values()
-    for amenity in amenities:
-        amenities_all.append(amenity.to_json())
-    return jsonify(amenities_all)
+@app_views.route('/amenities',
+                 strict_slashes=False,
+                 methods=['GET', 'POST'])
+def view_amenities():
+    """Returns the list of all Amenity objects"""
+    if request.method == 'POST':
+
+        # Get the attributes from the request
+        data = request.get_json()
+
+        if isinstance(data, dict):
+            pass
+        else:
+            return jsonify({"error": "Not a JSON"}), 400
+
+        if 'name' not in data.keys():
+            return jsonify({'error': 'Missing name'}), 400
+
+        if 'id' in data.keys():
+            data.pop("id")
+        if 'created_at' in data.keys():
+            data.pop("created_at")
+        if 'updated_at' in data.keys():
+            data.pop("updated_at")
+
+        # Create the object
+        obj = Amenity(**data)
+
+        # Save the object in storage
+        storage.new(obj)
+        storage.save()
+        return jsonify(obj.to_dict()), 201
+
+    if request.method == 'GET':
+        amenities = storage.all("Amenity")
+        list = []
+        for name, amenity_obj in amenities.items():
+            list.append(amenity_obj.to_dict())
+        return jsonify(list)
 
 
-@app_views.route('/amenities/<amenity_id>', methods=['GET'])
-def amenity_get(amenity_id):
-    """ handles GET method """
-    amenity = storage.get("Amenity", amenity_id)
+@app_views.route('/amenities/<id>',
+                 strict_slashes=False,
+                 methods=['GET', 'DELETE', 'PUT'])
+def view_amenity(id):
+    """Returns a list of all Amenity objects, or delete an
+    object if a given id
+    """
+    amenity = storage.get(Amenity, id)
+
     if amenity is None:
-        abort(404)
-    amenity = amenity.to_json()
-    return jsonify(amenity)
+        return abort(404)
 
+    if request.method == 'GET':
+        return jsonify(amenity.to_dict())
 
-@app_views.route('/amenities/<amenity_id>', methods=['DELETE'])
-def amenity_delete(amenity_id):
-    """ handles DELETE method """
-    empty_dict = {}
-    amenity = storage.get("Amenity", amenity_id)
-    if amenity is None:
-        abort(404)
-    storage.delete(amenity)
-    storage.save()
-    return jsonify(empty_dict), 200
+    if request.method == 'DELETE':
+        storage.delete(amenity)
+        storage.save()
+        return jsonify({}), 200
 
+    if request.method == 'PUT':
+        data = request.get_json()
 
-@app_views.route('/amenities', methods=['POST'], strict_slashes=False)
-def amenity_post():
-    """ handles POST method """
-    data = request.get_json()
-    if data is None:
-        abort(400, "Not a JSON")
-    if 'name' not in data:
-        abort(400, "Missing name")
-    amenity = Amenity(**data)
-    amenity.save()
-    amenity = amenity.to_json()
-    return jsonify(amenity), 201
+        if isinstance(data, dict):
+            pass
+        else:
+            return jsonify({"error": "Not a JSON"}), 400
 
+        for key, value in data.items():
+            if key not in ["id", "created_at", "updated_at"]:
+                setattr(amenity, key, value)
 
-@app_views.route('/amenities/<amenity_id>', methods=['PUT'])
-def amenity_put(amenity_id):
-    """ handles PUT method """
-    amenity = storage.get("Amenity", amenity_id)
-    if amenity is None:
-        abort(404)
-    data = request.get_json()
-    if data is None:
-        abort(400, "Not a JSON")
-    for key, value in data.items():
-        ignore_keys = ["id", "created_at", "updated_at"]
-        if key not in ignore_keys:
-            amenity.bm_update(key, value)
-    amenity.save()
-    amenity = amenity.to_json()
-    return jsonify(amenity), 200
+        storage.save()
+        return jsonify(amenity.to_dict())
